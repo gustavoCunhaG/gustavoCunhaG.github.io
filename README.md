@@ -1,4 +1,5 @@
 # gustavoCunhaG.github.io
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -192,7 +193,151 @@
     }
 
 </style>
-    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+    // Seletores
+    const sprintForm = document.getElementById('sprint-form');
+    const sprintsContent = document.getElementById('sprints-content');
+    const exportButton = document.getElementById('export-pdf');
+    const { jsPDF } = window.jspdf;
+
+    // ----- NOVA FUNCIONALIDADE: localStorage -----
+    
+    // Tenta carregar sprints do localStorage. Se não houver, começa com um array vazio.
+    let sprints = JSON.parse(localStorage.getItem('sprints')) || [];
+
+    // Função para SALVAR sprints no localStorage
+    function saveSprints() {
+        localStorage.setItem('sprints', JSON.stringify(sprints));
+    }
+
+    // Função para RENDERIZAR (mostrar) as sprints na tela
+    function renderSprints() {
+        // 1. Limpa a lista atual para evitar duplicatas
+        sprintsContent.innerHTML = '';
+
+        // 2. Se não houver sprints, mostra uma mensagem
+        if (sprints.length === 0) {
+            sprintsContent.innerHTML = '<p>Nenhuma sprint registrada ainda.</p>';
+            return;
+        }
+
+        // 3. Cria o HTML para cada sprint na lista
+        sprints.forEach(sprint => {
+            const sprintCard = document.createElement('div');
+            sprintCard.className = 'sprint-card';
+            // Adiciona um 'data-id' para sabermos qual sprint excluir
+            sprintCard.setAttribute('data-id', sprint.id);
+
+            // Formata as datas
+            const formattedStartDate = formatDate(sprint.startDate);
+            const formattedEndDate = formatDate(sprint.endDate);
+
+            sprintCard.innerHTML = `
+                <button class="btn-delete" title="Excluir sprint">X</button>
+                <h3>${sprint.name}</h3>
+                <p class="dates"><strong>Início:</strong> ${formattedStartDate} | <strong>Fim:</strong> ${formattedEndDate}</p>
+                <h4>Objetivos/Tarefas:</h4>
+                <pre class="tasks">${sprint.tasks}</pre>
+            `;
+
+            sprintsContent.appendChild(sprintCard);
+        });
+    }
+
+    // ----- MODIFICAÇÃO no 'submit' do formulário -----
+    sprintForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        // 1. Cria um objeto para a nova sprint
+        const newSprint = {
+            // Usamos Date.now() como um ID único
+            id: Date.now(), 
+            name: document.getElementById('sprint-name').value,
+            startDate: document.getElementById('start-date').value,
+            endDate: document.getElementById('end-date').value,
+            tasks: document.getElementById('sprint-tasks').value
+        };
+
+        // 2. Adiciona a nova sprint ao nosso array
+        sprints.push(newSprint);
+
+        // 3. Salva o array atualizado no localStorage
+        saveSprints();
+
+        // 4. Renderiza a lista de sprints na tela
+        renderSprints();
+
+        // 5. Limpa o formulário
+        sprintForm.reset();
+    });
+
+    // ----- NOVA FUNCIONALIDADE: Excluir Sprint -----
+    
+    // Adiciona um "ouvinte" na área de conteúdo para "pegar" cliques nos botões de excluir
+    sprintsContent.addEventListener('click', (event) => {
+        // Verifica se o que foi clicado foi um botão com a classe 'btn-delete'
+        if (event.target.classList.contains('btn-delete')) {
+            // Pega o ID da sprint a partir do atributo 'data-id' do card pai
+            const card = event.target.closest('.sprint-card');
+            const sprintId = Number(card.getAttribute('data-id'));
+
+            // Confirmação (opcional, mas recomendado)
+            if (confirm('Tem certeza que deseja excluir esta sprint?')) {
+                // 1. Filtra o array, mantendo apenas as sprints com ID diferente
+                sprints = sprints.filter(sprint => sprint.id !== sprintId);
+
+                // 2. Salva a nova lista (sem a sprint excluída)
+                saveSprints();
+
+                // 3. Renderiza a lista atualizada
+                renderSprints();
+            }
+        }
+    });
+
+    // ----- MODIFICAÇÃO no botão de Exportar -----
+    exportButton.addEventListener('click', () => {
+        // Se não houver sprints, não faz nada
+        if (sprints.length === 0) {
+            alert('Não há sprints para exportar!');
+            return;
+        }
+
+        exportButton.textContent = 'Exportando...';
+        exportButton.disabled = true;
+
+        html2canvas(sprintsContent, { scale: 2 })
+            .then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdfWidth = 210; // A4
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                const ratio = imgWidth / imgHeight;
+                const pdfHeight = (pdfWidth / ratio);
+
+                const doc = new jsPDF('p', 'mm', 'a4');
+                doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                doc.save('relatorio_sprints.pdf');
+
+                exportButton.textContent = 'Exportar como PDF';
+                exportButton.disabled = false;
+            });
+    });
+
+    // Função auxiliar para formatar a data (AAAA-MM-DD -> DD/MM/AAAA)
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
+    }
+
+    // ----- INICIALIZAÇÃO -----
+    // Renderiza as sprints que foram carregadas do localStorage no início
+    renderSprints();
+});
+    </script>
 </body>
 </html>
 
